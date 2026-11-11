@@ -7,7 +7,9 @@
 - 把仓库目录交给 `dsh plugin add` → 装上提醒插件；
 - 把仓库目录放进 `$DSH_HOME/skills/` → 变成一个可被智能体调用的 skill（[SKILL.md](SKILL.md)）。
 
-![置顶卡片](preview/card.png)
+![深色主题下的审批提醒](preview/card.png)
+
+![浅色主题下的审批提醒](preview/card-light.png)
 
 ## 为什么不是普通的网页弹窗
 
@@ -134,11 +136,13 @@ dsh plugin --profile desktop add "<skills 目录>/dsh-attention-notify"
 
 ## 行为
 
+- **三类提醒**：审批（橙）、提问 / 计划确认（蓝）、完成（绿）；一种只弹一个窗。
 - **置顶**：`WS_EX_TOPMOST`，被浏览器、资源管理器盖住也看得见。
 - **不抢焦点**：`ShowWithoutActivation`，你在别的窗口打字不被打断；点它才激活。
 - **按真实 DPI 渲染**：声明 Per-Monitor V2 DPI 感知 + ClearType，150% 缩放下窗口是 600×276 物理像素而不是被拉伸的 400×184。
-- **重发**：请求挂起期间每 30 秒再提醒一次（最多 3 次）。
-- **按钮**：「切回 DSH」把主窗口拉到前面，「知道了」收起卡片。点窗口内任意位置或按 `Esc` 也能收起。
+- **始终有提示音**：没有静音开关；首次鼠标/键盘操作后解锁播放。
+- **重发**：请求挂起期间每 30 秒再提醒一次（最多 3 次）；完成提醒 12 秒后自动收起。
+- **按钮**：「切回 DSH」把主窗口拉到前面，「知道了」收起卡片；`Esc` 也能收起。
 - **回退**：路由不可达时退回 Windows 通知，再退回应用内卡片 + 提示音。
 - **生命周期**：小窗第一次需要时启动，宿主卸载或 dsh 退出时结束；`%TEMP%\dsh-attention-notify\stop` 可手动叫停。
 
@@ -149,6 +153,7 @@ dsh plugin --profile desktop add "<skills 目录>/dsh-attention-notify"
 | 尺寸/字体/配色/位置 | `helper/alert-window.ps1` | `S()`、`$cardWidth`、字体 |
 | 重发间隔/次数 | `lib/client.js` | `REFRESH_MS`、`MAX_REFRESHES` |
 | 卡片停留/数量 | `lib/client.js` | `CARD_LIFETIME_MS`、`MAX_CARDS` |
+| 完成提醒停留 | `lib/client.js` | `DONE_LIFETIME_MS` |
 | 中英文案 | `lib/client.js` | `zh` / `en` 字典 |
 
 `lib/client.js` 改完半秒热替换；`index.js`、`helper/` 改动需要重载插件或重启应用。
@@ -156,11 +161,16 @@ dsh plugin --profile desktop add "<skills 目录>/dsh-attention-notify"
 ## 自检
 
 ```powershell
-node tests/render.test.mjs
+node tests/render.test.mjs                                   # 无头行为测试
 Invoke-WebRequest http://127.0.0.1:<port>/attention-notify/ping
 ```
 
-页面控制台：`__DSH_ATTENTION_NOTIFY__.test()`。
+页面控制台：
+
+```js
+__DSH_ATTENTION_NOTIFY__.selftest()   // true = 页面→宿主→窗口全通，并弹一张「自检」卡片
+__DSH_ATTENTION_NOTIFY__.test()       // 只播提示音 + 发一条系统通知
+```
 
 ## 限制
 
