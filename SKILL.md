@@ -43,6 +43,11 @@ that same server with its cookie. No port discovery is needed.
 
 ## Install
 
+Check first: `plugin_manager action=list_bundles` — if `dsh-attention-notify`
+already lists a row, the plugin is installed and only the reload step applies.
+Reinstalling the same package from a different path is what produces
+`restart-required` / `package-moved`, so prefer one stable location.
+
 ```powershell
 dsh plugin --profile desktop add <path-to-this-repo>
 ```
