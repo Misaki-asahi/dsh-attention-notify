@@ -94,6 +94,7 @@ public class AttentionForm : Form {
 public class AttentionNative {
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
 }
 "@ -ReferencedAssemblies System.Windows.Forms, System.Drawing
 
@@ -225,8 +226,14 @@ $openButton.Add_Click({
   $target = Get-Process -Name 'DeepSeek Harness' -ErrorAction SilentlyContinue |
     Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
   if ($null -ne $target) {
-    [void][AttentionNative]::ShowWindow($target.MainWindowHandle, 9)
-    [void][AttentionNative]::SetForegroundWindow($target.MainWindowHandle)
+    $handle = $target.MainWindowHandle
+    # SW_RESTORE also un-maximizes a maximized window, which looks like the app
+    # dropping out of fullscreen. Restore only a minimized window; otherwise
+    # just raise whatever state it already has.
+    if ([AttentionNative]::IsIconic($handle)) {
+      [void][AttentionNative]::ShowWindow($handle, 9) # SW_RESTORE
+    }
+    [void][AttentionNative]::SetForegroundWindow($handle)
   }
   $form.Hide()
 })
