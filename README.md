@@ -20,6 +20,17 @@
 | Electron `BrowserWindow` + `setAlwaysOnTop` | ❌ 宿主插件跑在 `ELECTRON_RUN_AS_NODE` 子进程里，拿不到窗口 API |
 | **独立进程的 WinForms 置顶窗** | ✅ 本仓库的方案 |
 
+## 平台支持
+
+| 平台 | 置顶小窗 | 系统通知 | 应用内卡片 + 提示音 | 会话跳转 |
+| --- | --- | --- | --- | --- |
+| **Windows** | ✅ WinForms + `WS_EX_TOPMOST` | ✅ | ✅ | ✅ |
+| **macOS / Linux** | ❌（没有等价的原生窗口通道） | ✅ | ✅ | ✅ |
+
+宿主端在非 Windows 上直接跳过小窗进程，路由照常回 `{"ok":true,"helper":false}`，页面据此退回系统通知，不会报错也不会反复尝试。
+
+**skill 文档本身是跨平台的**（`SKILL.md` 只是一份说明）；只有“置顶窗口”这项能力是 Windows 专属。
+
 ## 组成
 
 ```
@@ -54,14 +65,19 @@ plugin_manager  set_bundle  dsh-attention-notify  enabled=true
 
 ## 安装为 skill
 
-把本仓库目录（含 `SKILL.md`）放到 DSH 的 skills 目录下即可：
+把本仓库目录（含 `SKILL.md`）链接到 DSH 的 skills 目录即可：
 
 ```powershell
-# 软链或复制都可以
-New-Item -ItemType SymbolicLink -Path "$env:DSH_HOME\skills\dsh-attention-notify" -Target <本仓库路径>
+# Windows：junction，不需要管理员或开发者模式
+cmd /c mklink /J "%DSH_HOME%\skills\dsh-attention-notify" <本仓库路径>
 ```
 
-之后智能体在“要审批提醒 / 置顶弹窗”这类请求下会加载它。
+```bash
+# macOS / Linux
+ln -s <本仓库路径> "$DSH_HOME/skills/dsh-attention-notify"
+```
+
+链接后智能体在“要审批提醒 / 置顶弹窗”这类请求下会加载它（本机已用 junction 注册过，可直接验证）。
 
 ## 行为
 

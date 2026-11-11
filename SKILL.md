@@ -112,11 +112,16 @@ reload or an app restart.
 
 ## Hard limits
 
+- **The always-on-top card is Windows-only.** It is a WinForms window driven by
+  `powershell.exe`; the host half skips the spawn on other platforms and the
+  route answers `{"ok":true,"helper":false}`, so the page falls back to the OS
+  notification. Do not tell a macOS/Linux user they will get a topmost card.
+- This skill's own files are platform-neutral: installing it is just a directory
+  link (`mklink /J` on Windows, `ln -s` elsewhere).
 - Document Picture-in-Picture is **not implemented** by the bundled Electron:
   `requestWindow()` rejects with `InvalidStateError: … Internal error: no window`.
 - Host plugins run inside `ELECTRON_RUN_AS_NODE`, so no `BrowserWindow` and no
   `setAlwaysOnTop` — hence the separate helper process.
-- Windows only; elsewhere the plugin falls back to OS notifications.
 
 See [REFERENCE.md](REFERENCE.md) for internals, the wire format, and the full
 runtime evidence.

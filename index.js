@@ -109,6 +109,10 @@ export function apply(ctx) {
   /** Start the helper window once, on the first alert that needs it. */
   const ensureHelper = () => {
     if (helper !== undefined) return
+    // The topmost card is a WinForms window driven by Windows PowerShell. On
+    // other platforms there is nothing to spawn: the route still answers with
+    // `helper: false`, which makes the page fall back to the OS notification.
+    if (process.platform !== 'win32') return
     const script = join(here, 'helper', 'alert-window.ps1')
     if (!existsSync(script)) {
       ctx.logger?.warn?.(new Error(`attention-notify: helper script missing at ${script}`))
