@@ -136,12 +136,6 @@ export function apply(ctx) {
   const publish = (visible, alert) => {
     sequence += 1
     const payload = { seq: sequence, visible, ...(alert ?? {}) }
-    // A new state invalidates any jump request left from the previous one.
-    try {
-      rmSync(jumpFile, { force: true })
-    } catch {
-      /* nothing to clear */
-    }
     try {
       writeFileSync(alertFile, JSON.stringify(payload), 'utf8')
     } catch (error) {
