@@ -1,0 +1,44 @@
+{
+  "name": "dsh-attention-notify",
+  "version": "0.5.0",
+  "private": true,
+  "description": "System-level always-on-top alert window, OS notification fallback, and session jump",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "icon": "./icon.svg",
+  "meta": {
+    "title": "审批与选择提醒",
+    "description": "会话等待审批或等待你选择时，弹出独立进程的系统置顶小窗与提示音，并可跳转到该会话。"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  },
+  "files": [
+    "index.js",
+    "lib/client.js",
+    "helper",
+    "cordis.patch.yml",
+    "locale",
+    "icon.svg",
+    "README.md"
+  ],
+  "license": "MIT"
+}
+
+

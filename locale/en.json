@@ -1,0 +1,4 @@
+{
+  "title": "Approval & choice alerts",
+  "description": "Pops a system notification or an always-on-top window with a chime when a session needs approval or a choice, and jumps straight to that session."
+}
