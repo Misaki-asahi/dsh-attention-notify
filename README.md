@@ -50,6 +50,41 @@ SKILL.md / REFERENCE.md  skill 说明与实现细节
 
 页面用**相对路径**请求：浏览器直连本机服务器，桌面壳把 `dsh-app://app` 下未知路径带 cookie 转发到同一台服务器，所以不需要知道端口。
 
+## 一条链接让别人装（复制下面这段给他的 agent）
+
+> 帮我装一个 DSH 插件 + skill：https://github.com/Misaki-asahi/dsh-attention-notify
+>
+> ```powershell
+> git clone --depth 1 https://github.com/Misaki-asahi/dsh-attention-notify.git "$env:DSH_HOME\skills\dsh-attention-notify"
+> dsh plugin --profile desktop add "$env:DSH_HOME\skills\dsh-attention-notify"
+> ```
+>
+> 装完把插件重载一次（或重启 DSH）：
+>
+> ```
+> plugin_manager action=set_bundle target=dsh-attention-notify enabled=false
+> plugin_manager action=set_bundle target=dsh-attention-notify enabled=true
+> ```
+>
+> 注意：置顶小窗只有 Windows 有；macOS/Linux 只有系统通知 + 应用内卡片。
+
+如果对方更愿意一条命令，仓库里有安装脚本（幂等，已存在则 `git pull`）：
+
+```powershell
+# Windows
+git clone --depth 1 https://github.com/Misaki-asahi/dsh-attention-notify.git "$env:TEMP\dsh-attention-notify"
+& "$env:TEMP\dsh-attention-notify\install.ps1"
+```
+
+```sh
+# macOS / Linux
+git clone --depth 1 https://github.com/Misaki-asahi/dsh-attention-notify.git /tmp/dsh-attention-notify
+sh /tmp/dsh-attention-notify/install.sh
+```
+
+脚本会：克隆/更新到 `<DSH_HOME>/skills/dsh-attention-notify` → `dsh plugin add` 同一目录 → 打印重载与验证命令。
+`-SkipPlugin`（或 `SKIP_PLUGIN=1`）只装 skill。
+
 ## 安装为插件
 
 ```powershell

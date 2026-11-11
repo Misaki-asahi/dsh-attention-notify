@@ -52,6 +52,10 @@ separate clone:
 dsh plugin --profile desktop add "<the skill base directory>"
 ```
 
+On fresh machines the repository also ships `install.ps1` / `install.sh`, which
+clone into `<DSH_HOME>/skills/dsh-attention-notify`, run that same `dsh plugin
+add`, and print the reload step. Prefer them over hand-building the paths.
+
 On Windows the same directory also works from a skills junction. On
 macOS/Linux this installs the plugin fine — only the always-on-top card is
 missing (see Hard limits).
