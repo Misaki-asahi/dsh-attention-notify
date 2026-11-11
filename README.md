@@ -122,6 +122,16 @@ dsh plugin --profile desktop add "<skills 目录>/dsh-attention-notify"
 
 之后按 SKILL.md 的“重载宿主端”做一次即可。换句话说：`git clone` → 链接进 skills → `dsh plugin add` → 重载，四步就能用，不需要另外找插件包。
 
+## 三类提醒的颜色
+
+| kind | 触发 | 强调色 | 主题 token |
+| --- | --- | --- | --- |
+| `approval` | 工具请求允许/拒绝 | 橙 `#E08B1A` | `--dsw-alias-state-warn-primary` |
+| `question` / `plan-review` | 提问或计划确认 | 蓝 `#4D6BFE` | `--dsw-alias-state-business-primary` |
+| `done` | 本轮回复结束 | 绿 `#3FB950` | `--dsw-alias-state-success-primary` |
+
+颜色由页面在当前主题下解析后随提醒下发，深色/浅色主题会自动跟随；helper 里保留的常量只是取不到 token 时的回退。
+
 ## 行为
 
 - **置顶**：`WS_EX_TOPMOST`，被浏览器、资源管理器盖住也看得见。
