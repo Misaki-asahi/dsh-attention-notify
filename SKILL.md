@@ -43,14 +43,23 @@ that same server with its cookie. No port discovery is needed.
 
 ## Install
 
+**The plugin package is this skill's own base directory.** The skill tool reports
+it as `Base directory for this skill: …`; that directory already contains
+`package.json`, `index.js`, `lib/`, and `helper/`, so a skill install needs no
+separate clone:
+
+```powershell
+dsh plugin --profile desktop add "<the skill base directory>"
+```
+
+On Windows the same directory also works from a skills junction. On
+macOS/Linux this installs the plugin fine — only the always-on-top card is
+missing (see Hard limits).
+
 Check first: `plugin_manager action=list_bundles` — if `dsh-attention-notify`
 already lists a row, the plugin is installed and only the reload step applies.
 Reinstalling the same package from a different path is what produces
 `restart-required` / `package-moved`, so prefer one stable location.
-
-```powershell
-dsh plugin --profile desktop add <path-to-this-repo>
-```
 
 Then reload the host half once (the client half hot-reloads on its own):
 
@@ -61,6 +70,9 @@ plugin_manager  action=set_bundle  target=dsh-attention-notify  enabled=true
 
 `restart-required` + `package-moved` means the bundle's resolved directory
 changed: restart DSH, or remove the bundle before adding it from another path.
+
+Never install the plugin *from a second copy* of these files: two paths with one
+package name is the only way to end up with a broken install.
 
 ## Verify
 

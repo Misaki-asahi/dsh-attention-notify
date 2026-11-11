@@ -79,6 +79,14 @@ ln -s <本仓库路径> "$DSH_HOME/skills/dsh-attention-notify"
 
 链接后智能体在“要审批提醒 / 置顶弹窗”这类请求下会加载它（本机已用 junction 注册过，可直接验证）。
 
+**skill 目录里就带着插件本体**，所以别人装完 skill 只差一条命令：
+
+```powershell
+dsh plugin --profile desktop add "<skills 目录>/dsh-attention-notify"
+```
+
+之后按 SKILL.md 的“重载宿主端”做一次即可。换句话说：`git clone` → 链接进 skills → `dsh plugin add` → 重载，四步就能用，不需要另外找插件包。
+
 ## 行为
 
 - **置顶**：`WS_EX_TOPMOST`，被浏览器、资源管理器盖住也看得见。
