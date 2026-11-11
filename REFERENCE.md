@@ -53,6 +53,24 @@ that is the composition-level contract.
   `systemNotifications` (one toast per key, closed when the request settles),
   `hostWindowShown` (so `clear` is only sent for a window this page raised).
 
+### Completion pings
+
+`sessionStatus` also carries `running`. A `true → false` transition means the
+turn ended, which the component turns into a `transient` notice (`kind: "done"`).
+Transient notices are pruned by age instead of by pending state, and the host
+window is retired 12 s later unless a newer alert replaced it. The ping is
+suppressed when the finished session is the one on screen and the window has
+focus — `ctx.uiSession.current` plus `document.hasFocus()` — so watching a reply
+never beeps at you.
+
+### One surface at a time
+
+`announce()` optimistically marks the host window as up; while it is up the
+in-page card is not rendered, so a request produces exactly one alert. When the
+route answers `{ok:false}` / `helper:false` / a non-JSON 200 (SPA fallback), the
+card comes back and the OS toast is posted instead. That makes the themed card a
+true fallback rather than a second popup.
+
 ## Helper (`helper/alert-window.ps1`)
 
 Why a separate process: the plugin host is a Node child of Electron

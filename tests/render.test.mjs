@@ -391,5 +391,17 @@ dismissButton.onClick()
 tree = render()
 assert.equal(tree, null, 'dismissing the last card empties the overlay')
 
-console.log('ok - one surface at a time: native window, jump poll, fallback card, mute, dismissal')
+// A turn that finishes elsewhere pings once, then the card retires itself.
+nativeMode = 'ok'
+sessionStatus.set(new Map([['s1', { running: true }]]))
+await settle()
+sessionStatus.set(new Map([['s1', { running: false }]]))
+tree = await settle()
+assert.equal(tree, null, 'the native window owns the completion ping')
+const completion = JSON.parse(callsTo('/attention-notify/notify').at(-1).body)
+assert.equal(completion.kind, 'done')
+assert.equal(completion.title, '夜间重构')
+assert.match(completion.kindLabel, /已完成/u)
+
+console.log('ok - one surface at a time: native window, jump poll, fallback card, mute, dismissal, completion ping')
 process.exit(0)

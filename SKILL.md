@@ -18,6 +18,11 @@ user a session needs them, on top of every other window.
 | `question` | `ask_user_question` waits for a choice or text |
 | `plan-review` | `exit_plan_mode` waits for approve/changes |
 
+Plus one transition signal: a session whose `running` goes `true → false`
+finished a turn, so it pings as `kind: "done"`. That ping is skipped while the
+user is looking at that very session with the window focused, and its card
+retires itself after 12 s.
+
 ## What it does
 
 1. **Always-on-top card** — a separate `powershell.exe` process runs
@@ -27,6 +32,8 @@ user a session needs them, on top of every other window.
 3. **In-app card** — `shell.overlay` slot, with 「打开会话」.
 4. **Windows toast** — fallback when the host route is unreachable.
 5. **Repeat** — a still-pending request re-announces itself every 30 s (×3).
+6. **Completion ping** — `running: true → false` announces `已完成` once, so a
+   reply that lands while the user is elsewhere is not missed.
 
 ## Data flow
 

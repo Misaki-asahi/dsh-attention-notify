@@ -214,7 +214,7 @@ export function apply(ctx) {
             respond(response, 400, { ok: false, error: 'empty alert' })
             return
           }
-          const kind = body.kind === 'question' || body.kind === 'plan-review' ? body.kind : 'approval'
+          const kind = body.kind === 'question' || body.kind === 'plan-review' || body.kind === 'done' ? body.kind : 'approval'
           ensureHelper()
           publish(true, {
             title,

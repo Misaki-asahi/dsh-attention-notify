@@ -106,6 +106,7 @@ public class AttentionNative {
 
 $script:accentColor = [System.Drawing.Color]::FromArgb(224, 139, 26)
 $script:questionColor = [System.Drawing.Color]::FromArgb(96, 132, 255)
+$script:successColor = [System.Drawing.Color]::FromArgb(63, 185, 80)
 $script:backgroundColor = [System.Drawing.Color]::FromArgb(26, 30, 41)
 $script:titleColor = [System.Drawing.Color]::FromArgb(240, 242, 247)
 $script:bodyColor = [System.Drawing.Color]::FromArgb(198, 205, 220)
@@ -213,7 +214,8 @@ function Show-Attention {
   param($Alert)
   $kind = [string]$Alert.kind
   $isQuestion = ($kind -eq 'question') -or ($kind -eq 'plan-review')
-  $kindColor = if ($isQuestion) { $script:questionColor } else { $script:accentColor }
+  $isDone = $kind -eq 'done'
+  $kindColor = if ($isQuestion) { $script:questionColor } elseif ($isDone) { $script:successColor } else { $script:accentColor }
   $background = $script:backgroundColor
   $titleColor = $script:titleColor
   $bodyColor = $script:bodyColor
