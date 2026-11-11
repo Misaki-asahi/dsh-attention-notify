@@ -11,7 +11,7 @@
  * @module dsh-attention-notify
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,8 +22,6 @@ const here = dirname(fileURLToPath(import.meta.url))
 const stateDir = join(tmpdir(), 'dsh-attention-notify')
 /** The single alert document the helper polls. */
 const alertFile = join(stateDir, 'alert.json')
-/** A jump request the helper writes when its button is pressed. */
-const jumpFile = join(stateDir, 'jump.json')
 /** Presence of this file asks the helper to exit. */
 const stopFile = join(stateDir, 'stop')
 /** Largest accepted request body. */
@@ -43,28 +41,6 @@ function readTheme(raw) {
     if (value !== undefined) theme[name] = value
   }
   return Object.keys(theme).length === 0 ? undefined : theme
-}
-
-/** Take one pending jump request, if the helper left one. */
-function takeJump() {
-  let raw
-  try {
-    raw = readFileSync(jumpFile, 'utf8')
-  } catch {
-    return null
-  }
-  try {
-    rmSync(jumpFile, { force: true })
-  } catch {
-    /* a concurrent reader may have consumed it */
-  }
-  try {
-    const parsed = JSON.parse(raw)
-    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId === '') return null
-    return { sessionId: parsed.sessionId, key: typeof parsed.key === 'string' ? parsed.key : '' }
-  } catch {
-    return null
-  }
 }
 
 /** Write a JSON response. */
@@ -158,7 +134,7 @@ export function apply(ctx) {
     try {
       helper = spawn(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, alertFile, stopFile, jumpFile, String(process.pid)],
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, alertFile, stopFile, String(process.pid)],
         { stdio: 'ignore', windowsHide: true }
       )
       helper.on('error', (error) => {
@@ -181,10 +157,6 @@ export function apply(ctx) {
       const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
       if (request.method === 'GET' && pathname === '/attention-notify/ping') {
         respond(response, 200, { ok: true, helper: helper !== undefined })
-        return
-      }
-      if (request.method === 'GET' && pathname === '/attention-notify/take-jump') {
-        respond(response, 200, { ok: true, jump: takeJump() })
         return
       }
       if (request.method !== 'POST') {
@@ -217,8 +189,6 @@ export function apply(ctx) {
             kindLabel: text(body.kindLabel, 80),
             openLabel: text(body.openLabel, 40),
             dismissLabel: text(body.dismissLabel, 40),
-            key: text(body.key, 120),
-            sessionId: text(body.sessionId, 120),
             theme: readTheme(body.theme)
           })
           respond(response, 200, { ok: true, helper: helper !== undefined })

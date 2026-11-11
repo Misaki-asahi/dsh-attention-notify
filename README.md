@@ -22,7 +22,7 @@
 
 ## 平台支持
 
-| 平台 | 置顶小窗 | 系统通知 | 应用内卡片 + 提示音 | 会话跳转 |
+| 平台 | 置顶小窗 | 系统通知 | 应用内卡片 + 提示音 |
 | --- | --- | --- | --- | --- |
 | **Windows** | ✅ WinForms + `WS_EX_TOPMOST` | ✅ | ✅ | ✅ |
 | **macOS / Linux** | ❌（没有等价的原生窗口通道） | ✅ | ✅ | ✅ |
@@ -34,7 +34,7 @@
 ## 组成
 
 ```
-lib/client.js            页面端：订阅待办交互、卡片、提示音、推送宿主、会话跳转
+lib/client.js            页面端：订阅待办交互、卡片、提示音、推送宿主
 index.js                 宿主端：/attention-notify 路由、拉起/收起小窗进程
 helper/alert-window.ps1  置顶小窗：WinForms + WS_EX_TOPMOST，独立 PowerShell 进程
 tests/render.test.mjs    无 React/无浏览器的行为测试
@@ -128,7 +128,7 @@ dsh plugin --profile desktop add "<skills 目录>/dsh-attention-notify"
 - **不抢焦点**：`ShowWithoutActivation`，你在别的窗口打字不被打断；点它才激活。
 - **按真实 DPI 渲染**：声明 Per-Monitor V2 DPI 感知 + ClearType，150% 缩放下窗口是 600×276 物理像素而不是被拉伸的 400×184。
 - **重发**：请求挂起期间每 30 秒再提醒一次（最多 3 次）。
-- **按钮**：「切回 DSH」把主窗口拉到前面；应用内卡片上的「打开会话」走 `ctx.uiWorkspace.openSession(sessionId)` 真正切会话。
+- **按钮**：「切回 DSH」把主窗口拉到前面，「知道了」收起卡片。点窗口内任意位置或按 `Esc` 也能收起。
 - **回退**：路由不可达时退回 Windows 通知，再退回应用内卡片 + 提示音。
 - **生命周期**：小窗第一次需要时启动，宿主卸载或 dsh 退出时结束；`%TEMP%\dsh-attention-notify\stop` 可手动叫停。
 

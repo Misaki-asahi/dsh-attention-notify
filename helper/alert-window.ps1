@@ -1,7 +1,6 @@
 param(
   [Parameter(Mandatory = $true)][string]$AlertFile,
   [Parameter(Mandatory = $true)][string]$StopFile,
-  [Parameter(Mandatory = $true)][string]$JumpFile,
   [int]$OwnerPid = 0,
   [string]$LogFile = ''
 )
@@ -258,17 +257,6 @@ function Show-Attention {
 }
 
 $openButton.Add_Click({
-  # Ask the page to switch sessions: the helper has no access to the app's
-  # session controller, so it drops a request the page polls for.
-  if ($null -ne $script:current) {
-    $payload = @{
-      sessionId = [string]$script:current.sessionId
-      key       = [string]$script:current.key
-    } | ConvertTo-Json -Compress
-    try { Set-Content -LiteralPath $JumpFile -Value $payload -Encoding UTF8 } catch {
-      Write-Log ('jump write failed: ' + $_.Exception.Message)
-    }
-  }
   $target = Get-Process -Name 'DeepSeek Harness' -ErrorAction SilentlyContinue |
     Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
   if ($null -ne $target) {

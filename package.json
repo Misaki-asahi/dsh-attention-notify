@@ -2,7 +2,7 @@
   "name": "dsh-attention-notify",
   "version": "0.5.0",
   "private": true,
-  "description": "System-level always-on-top alert window, OS notification fallback, and session jump",
+  "description": "System-level always-on-top alert window for approvals, questions, and finished turns",
   "type": "module",
   "main": "index.js",
   "exports": {

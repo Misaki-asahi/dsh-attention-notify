@@ -1,6 +1,6 @@
 ---
 name: dsh-attention-notify
-description: Install, verify, retune, or review the dsh-attention-notify plugin, which raises a system-level always-on-top alert card with a chime and a one-click session jump whenever a DSH session is waiting for approval or a choice. Use when the user asks for approval or question notifications, an always-on-top or "置顶" popup, a notification sound, "会话需要审批时提醒我", "弹窗盖不住", or asks to install, debug, tune, or audit this plugin.
+description: Install, verify, retune, or review the dsh-attention-notify plugin, which raises a system-level always-on-top alert card with a chime whenever a DSH session is waiting for approval, needs a choice, or finishes a turn. Use when the user asks for approval or question notifications, an always-on-top or "置顶" popup, a notification sound, "会话需要审批时提醒我", "弹窗盖不住", or asks to install, debug, tune, or audit this plugin.
 ---
 
 # dsh-attention-notify
@@ -29,7 +29,8 @@ retires itself after 12 s.
    `helper/alert-window.ps1` (WinForms, `WS_EX_TOPMOST`, `ShowWithoutActivation`),
    shown on the primary screen's top-right corner. It never steals focus.
 2. **Chime** — two-note Web Audio in the page, unlocked on the first gesture.
-3. **In-app card** — `shell.overlay` slot, with 「打开会话」.
+3. **In-app card** — `shell.overlay` slot; rendered only when the host window
+   is unavailable (non-Windows, route down), so a request never shows two cards.
 4. **Windows toast** — fallback when the host route is unreachable.
 5. **Repeat** — a still-pending request re-announces itself every 30 s (×3).
 6. **Completion ping** — `running: true → false` announces `已完成` once, so a

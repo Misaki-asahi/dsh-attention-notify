@@ -44,11 +44,11 @@ that is the composition-level contract.
 - `inject: ['slots', 'sessions', 'uiSession', 'locale']`.
 - Registers `shell.overlay` (`ctx.slots.inject('shell.overlay', () => …register)`),
   so it survives that slot's re-declaration.
-- Reads `ctx.uiSession.sessionStatus` through `useSyncExternalStore`.
-- Jump: `ctx.get('uiWorkspace').openSession(sessionId)` — the only supported way
-  for another plugin to replace the main view's `mainView` reference. Nothing is
-  hard-injected, so a composition without `uiWorkspace` degrades to raising the
-  window instead of deactivating the plugin.
+- Reads `ctx.uiSession.sessionStatus` through `useSyncExternalStore`. It carries
+  the pending interaction and the `running` flag, so one source covers both
+  "waiting for you" and "just finished".
+- No session switching: jumping relied on `ctx.get('uiWorkspace').openSession`,
+  which exists but was removed on request — the card raises the app instead.
 - Announcement bookkeeping: `seen` (5 s guard), `refreshes` (3 repeats),
   `systemNotifications` (one toast per key, closed when the request settles),
   `hostWindowShown` (so `clear` is only sent for a window this page raised).
@@ -133,9 +133,9 @@ match the dark theme; keep them in sync with `--dsw-*` only by eye.
 `tests/render.test.mjs` evaluates the real bundle against a ~120-line hooks
 runtime (useState/useRef/useCallback/useEffect/useSyncExternalStore) plus fake
 stores, `fetch`, `Notification`, `AudioContext` and `localStorage`. It asserts
-card text, the host request body, the toast fallback, the jump call, mute
-persistence, and dismissal. It is not a substitute for the real window; the
-route + `PrintWindow` checks in SKILL.md cover that.
+card text, the host request body, the toast fallback, the completion ping, and
+dismissal. It is not a substitute for the real window; the route + `PrintWindow`
+checks in SKILL.md cover that.
 
 ## Security notes
 
