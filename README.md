@@ -7,7 +7,11 @@
 - 把仓库目录交给 `dsh plugin add` → 装上提醒插件；
 - 把仓库目录放进 `$DSH_HOME/skills/` → 变成一个可被智能体调用的 skill（[SKILL.md](SKILL.md)）。
 
-![深色主题下的审批提醒](preview/card.png)
+| 审批（橙） | 等待选择（蓝） | 已完成（绿） |
+| --- | --- | --- |
+| ![审批](preview/card.png) | ![等待选择](preview/card-question.png) | ![已完成](preview/card-done.png) |
+
+浅色主题下同一张卡片的样子：
 
 ![浅色主题下的审批提醒](preview/card-light.png)
 
@@ -171,6 +175,15 @@ Invoke-WebRequest http://127.0.0.1:<port>/attention-notify/ping
 __DSH_ATTENTION_NOTIFY__.selftest()   // true = 页面→宿主→窗口全通，并弹一张「自检」卡片
 __DSH_ATTENTION_NOTIFY__.test()       // 只播提示音 + 发一条系统通知
 ```
+
+## 数据与隐私
+
+- **不出本机**：插件只向 `127.0.0.1` 上的本地宿主发请求，没有任何外发网络调用、统计或遥测。
+- **落盘的内容**：提醒文本（会话标题、问题原文、审批理由）会写进 `%TEMP%\dsh-attention-notify\alert.json`，仅当前用户可读；提醒收起时该文件被改写为不含正文的 `{"seq":N,"visible":false}`，插件卸载时整份删除。
+- **不写日志**：helper 默认不落日志，只有手动传 `-LogFile` 才记录（内容为 DPI/显示等调试信息）。
+- **系统通知**：回退通道会把标题与正文交给 Windows 通知中心，属于本机行为。
+- **本机接口无鉴权**：`/attention-notify/*` 只监听回环地址，但同机任意程序都能调用它弹一条提醒或把它收起——最坏结果是打扰，拿不到任何数据。若把 profile 的 `webserver.host` 改成非回环地址，该接口会暴露给网络，请勿这么做。
+- **小窗进程**：`powershell.exe -ExecutionPolicy Bypass` 只执行插件目录内的固定脚本，不下载、不解析远程内容。
 
 ## 限制
 

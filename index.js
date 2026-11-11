@@ -104,11 +104,20 @@ export function apply(ctx) {
   try {
     mkdirSync(stateDir, { recursive: true })
     rmSync(stopFile, { force: true })
+    // A jump file can only be left by a build that still had the feature.
+    rmSync(join(stateDir, 'jump.json'), { force: true })
   } catch (error) {
     ctx.logger?.warn?.(error)
   }
 
-  /** Publish one alert document; the helper picks it up on its next tick. */
+  /**
+   * Publish one alert document; the helper picks it up on its next tick.
+   *
+   * The document holds the session title and the alert text, which can be
+   * sensitive, so it lives only in the user's temporary directory and is
+   * overwritten with an empty `visible: false` payload the moment the alert is
+   * cleared. Nothing here leaves the machine.
+   */
   const publish = (visible, alert) => {
     sequence += 1
     const payload = { seq: sequence, visible, ...(alert ?? {}) }
@@ -216,6 +225,12 @@ export function apply(ctx) {
         /* the helper may already be gone */
       }
       helper = undefined
+      // Leave no alert text behind once the plugin itself goes away.
+      try {
+        rmSync(alertFile, { force: true })
+      } catch {
+        /* the file may already be gone */
+      }
     }
   }, 'attention-notify: helper window and route')
 }
