@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory = $true)][string]$AlertFile,
   [Parameter(Mandatory = $true)][string]$StopFile,
+  [Parameter(Mandatory = $true)][string]$JumpFile,
   [int]$OwnerPid = 0,
   [string]$LogFile = ''
 )
@@ -185,32 +186,64 @@ function Get-CardOrigin {
 
 $form.Location = Get-CardOrigin
 $script:lastSeq = -1
+$script:current = $null
+
+# The page sends resolved theme colours (the helper cannot read CSS variables),
+# so the card follows light/dark like the in-app one.
+function ConvertTo-Color {
+  param([string]$Value, [System.Drawing.Color]$Fallback)
+  if ([string]::IsNullOrWhiteSpace($Value)) { return $Fallback }
+  $text = $Value.Trim()
+  if ($text.StartsWith('#')) {
+    try { return [System.Drawing.ColorTranslator]::FromHtml($text) } catch { return $Fallback }
+  }
+  $match = [regex]::Match($text, 'rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)')
+  if ($match.Success) {
+    try {
+      return [System.Drawing.Color]::FromArgb(
+        [int][double]$match.Groups[1].Value,
+        [int][double]$match.Groups[2].Value,
+        [int][double]$match.Groups[3].Value)
+    } catch { return $Fallback }
+  }
+  return $Fallback
+}
 
 function Show-Attention {
   param($Alert)
   $kind = [string]$Alert.kind
   $isQuestion = ($kind -eq 'question') -or ($kind -eq 'plan-review')
-  if ($isQuestion) {
-    $kindColor = $script:questionColor
-  } else {
-    $kindColor = $script:accentColor
+  $kindColor = if ($isQuestion) { $script:questionColor } else { $script:accentColor }
+  $background = $script:backgroundColor
+  $titleColor = $script:titleColor
+  $bodyColor = $script:bodyColor
+  $theme = $Alert.theme
+  if ($null -ne $theme) {
+    $kindColor = ConvertTo-Color ([string]$theme.accent) $kindColor
+    $background = ConvertTo-Color ([string]$theme.bg) $background
+    $titleColor = ConvertTo-Color ([string]$theme.text) $titleColor
+    $bodyColor = ConvertTo-Color ([string]$theme.muted) $bodyColor
   }
   $kindText = [string]$Alert.kindLabel
   if ([string]::IsNullOrWhiteSpace($kindText)) {
     $kindText = if ($isQuestion) { 'Waiting for your choice' } else { 'Approval needed' }
   }
   $openText = [string]$Alert.openLabel
-  if ([string]::IsNullOrWhiteSpace($openText)) { $openText = 'Back to DSH' }
+  if ([string]::IsNullOrWhiteSpace($openText)) { $openText = 'Open session' }
   $dismissText = [string]$Alert.dismissLabel
   if ([string]::IsNullOrWhiteSpace($dismissText)) { $dismissText = 'Dismiss' }
+  $form.BackColor = $background
   $kindLabel.Text = $kindText
   $kindLabel.ForeColor = $kindColor
   $accent.BackColor = $kindColor
   $openButton.BackColor = $kindColor
   $openButton.Text = $openText
   $dismissButton.Text = $dismissText
+  $titleLabel.ForeColor = $titleColor
+  $bodyLabel.ForeColor = $bodyColor
   $titleLabel.Text = [string]$Alert.title
   $bodyLabel.Text = [string]$Alert.body
+  $script:current = $Alert
   if (-not $form.Visible) {
     try {
       $form.Show()
@@ -223,6 +256,17 @@ function Show-Attention {
 }
 
 $openButton.Add_Click({
+  # Ask the page to switch sessions: the helper has no access to the app's
+  # session controller, so it drops a request the page polls for.
+  if ($null -ne $script:current) {
+    $payload = @{
+      sessionId = [string]$script:current.sessionId
+      key       = [string]$script:current.key
+    } | ConvertTo-Json -Compress
+    try { Set-Content -LiteralPath $JumpFile -Value $payload -Encoding UTF8 } catch {
+      Write-Log ('jump write failed: ' + $_.Exception.Message)
+    }
+  }
   $target = Get-Process -Name 'DeepSeek Harness' -ErrorAction SilentlyContinue |
     Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
   if ($null -ne $target) {

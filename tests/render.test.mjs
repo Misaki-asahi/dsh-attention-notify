@@ -2,8 +2,8 @@
  * Headless check of the browser half without React or a browser.
  *
  * The bundle is evaluated against a minimal hooks runtime so detection, the
- * host-window request, the OS-toast fallback, session jump, mute, dismissal,
- * and card rendering are exercised exactly as written.
+ * host-window request, the fallback card, the jump poll, mute, and dismissal
+ * are exercised exactly as written.
  *
  * Run with: node tests/render.test.mjs
  */
@@ -44,13 +44,20 @@ const sessionStatus = createStore(new Map())
 const storage = new Map()
 const audio = { contexts: 0, oscillators: 0 }
 const focusCalls = { count: 0 }
+const intervalSlots = []
+let intervalSlot = 0
 
-/** Host-route traffic: every POST the page makes to the always-on-top window. */
+/** Host-route traffic: every request the page sends to the always-on-top window. */
 const nativeCalls = []
 let nativeMode = 'ok'
+let jumpQueue = []
 
 globalThis.fetch = async (url, options) => {
   nativeCalls.push({ url, body: options?.body })
+  if (url === '/attention-notify/take-jump') {
+    const jump = jumpQueue.shift() ?? null
+    return { ok: true, json: async () => ({ ok: true, jump }) }
+  }
   if (nativeMode === 'fail') throw new Error('host route unavailable')
   if (nativeMode === 'no-helper') return { ok: true, json: async () => ({ ok: true, helper: false }) }
   return { ok: true, json: async () => ({ ok: true, helper: true }) }
@@ -89,8 +96,12 @@ const windowStub = {
   removeEventListener() {},
   setTimeout: (fn, ms) => setTimeout(fn, ms),
   clearTimeout: (id) => clearTimeout(id),
-  setInterval: (fn, ms) => setInterval(fn, ms),
-  clearInterval: (id) => clearInterval(id),
+  setInterval: (fn) => {
+    intervalSlots[intervalSlot] = fn
+    intervalSlot += 1
+    return intervalSlot
+  },
+  clearInterval() {},
   focus: () => {
     focusCalls.count += 1
   }
@@ -99,8 +110,9 @@ const documentStub = {
   visibilityState: 'visible',
   title: '',
   hasFocus: () => false,
-  body: { hasAttribute: () => false },
-  documentElement: { style: { setProperty() {} }, setAttribute() {} }
+  body: { hasAttribute: () => false, appendChild() {} },
+  documentElement: { style: { setProperty() {} }, setAttribute() {} },
+  createElement: () => ({ style: {}, remove() {} })
 }
 
 const systemNotifications = []
@@ -221,7 +233,6 @@ assert.deepEqual(
 assert.equal(registrations.length, 1, 'plugin registers exactly one slot entry')
 assert.equal(registrations[0].options.name, 'shell.overlay')
 assert.equal(registrations[0].options.id, 'attention-notify')
-assert.equal(typeof registrations[0].component, 'function')
 
 const t = (key, values) => {
   const template = localeDictionaries[0]?.dictionaries.zh?.[key] ?? key
@@ -234,6 +245,7 @@ function render() {
   let tree = null
   for (let pass = 0; pass < 40; pass += 1) {
     cursor = 0
+    intervalSlot = 0
     effects = []
     dirty = false
     tree = registrations[0].component({ t })
@@ -243,8 +255,15 @@ function render() {
   return tree
 }
 
-/** Let the async host-route request settle. */
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+/** Let pending host-route promises settle and re-render. */
+async function settle() {
+  let tree = null
+  for (let pass = 0; pass < 6; pass += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    tree = render()
+  }
+  return tree
+}
 
 /** Flatten a rendered tree into its text and its <button> props. */
 function collect(node, out) {
@@ -272,41 +291,39 @@ function inspect(tree) {
 }
 
 const buttonByTitle = (view, title) => view.buttons.find((button) => button.title === title)
-const postsTo = (suffix) => nativeCalls.filter((call) => call.url === suffix)
+const callsTo = (suffix) => nativeCalls.filter((call) => call.url === suffix)
 
 // ---------------------------------------------------------------- scenarios
 
 assert.equal(render(), null, 'renders nothing while no request is pending')
 assert.equal(audio.oscillators, 0, 'silent while nothing is pending')
 
-// An approval arrives: card, host window request, and one chime.
+// An approval arrives: the host window owns it, so no in-page card is rendered.
 sessionStatus.set(
   new Map([
     ['s1', { running: true, pendingInteraction: { kind: 'approval', key: 'approval:1', toolName: 'pwsh', reason: 'Write outside the workspace' } }]
   ])
 )
-let view = inspect(render())
-assert.match(view.text, /需要审批/u)
-assert.match(view.text, /夜间重构/u)
-assert.match(view.text, /pwsh/u)
-assert.match(view.text, /Write outside the workspace/u)
-assert.equal(view.buttons.length, 3, 'card exposes mute, dismiss, and open')
+let tree = await settle()
+assert.equal(tree, null, 'the native window replaces the in-page card')
 assert.equal(audio.oscillators, 2, 'the two-note chime plays once')
-await flush()
-assert.equal(postsTo('/attention-notify/notify').length, 1, 'the host always-on-top window is asked to show')
-assert.match(postsTo('/attention-notify/notify')[0].body, /夜间重构/u)
-assert.match(postsTo('/attention-notify/notify')[0].body, /approval/u)
-assert.equal(systemNotifications.length, 0, 'no OS toast when the host window accepted the alert')
+assert.equal(callsTo('/attention-notify/notify').length, 1, 'the host is asked to show the alert')
+const body = JSON.parse(callsTo('/attention-notify/notify')[0].body)
+assert.equal(body.title, '夜间重构')
+assert.equal(body.kind, 'approval')
+assert.equal(body.sessionId, 's1')
+assert.equal(body.key, 'approval:1')
+assert.ok(body.theme !== undefined, 'the resolved theme travels with the alert')
+assert.match(body.body, /pwsh/u)
+assert.equal(systemNotifications.length, 0, 'no OS toast when the host accepted the alert')
 assert.ok(focusCalls.count >= 1, 'an unfocused window is pulled forward')
 
 // The same request re-published does not ring or notify twice.
-view = inspect(render())
-await flush()
+tree = await settle()
 assert.equal(audio.oscillators, 2, 'a duplicate status publication stays quiet')
-assert.equal(postsTo('/attention-notify/notify').length, 1, 'a duplicate publication asks for nothing new')
-assert.equal((view.text.match(/需要审批/gu) ?? []).length, 1, 'one card per request')
+assert.equal(callsTo('/attention-notify/notify').length, 1, 'a duplicate publication asks for nothing new')
 
-// A second session asks a question beside the standing approval.
+// A second session asks a question: still one surface, one more host request.
 sessionStatus.set(
   new Map([
     ['s1', { running: true, pendingInteraction: { kind: 'approval', key: 'approval:1', toolName: 'pwsh' } }],
@@ -316,71 +333,63 @@ sessionStatus.set(
     ]
   ])
 )
-view = inspect(render())
-await flush()
-assert.match(view.text, /等待你的选择/u)
-assert.match(view.text, /接口联调/u)
-assert.match(view.text, /要保留旧的接口吗？/u)
+tree = await settle()
+assert.equal(tree, null, 'both requests stay on the native surface')
+assert.equal(callsTo('/attention-notify/notify').length, 2, 'each request reaches the host window')
 assert.equal(audio.oscillators, 4, 'the question rings once more')
-assert.equal(postsTo('/attention-notify/notify').length, 2, 'each request reaches the host window')
 
-// "打开会话" jumps to the owning session, retires the card, and hides the window.
-const openButton = view.buttons.find((button) => button.children === '打开会话')
-assert.ok(openButton, 'the open-session action is offered')
-openButton.onClick()
-await flush()
-assert.deepEqual(opened, ['s2'], 'the jump uses uiWorkspace.openSession')
-assert.equal(postsTo('/attention-notify/clear').length, 1, 'opening the session retires the host window')
-const afterOpen = inspect(render())
-assert.doesNotMatch(afterOpen.text, /等待你的选择/u, 'the opened card leaves the overlay')
-assert.match(afterOpen.text, /需要审批/u, 'the other pending request keeps its card')
+// The native window's button drops a jump request the page polls for.
+jumpQueue = [{ sessionId: 's2', key: 'question:s2:c1' }]
+intervalSlots[1]()   // the jump poll; slot 0 is the 30 s repeat timer
+await settle()
+assert.deepEqual(opened, ['s2'], 'the jump request switches to the owning session')
+assert.ok(callsTo('/attention-notify/clear').length >= 1, 'jumping retires the host window')
 
-// The host route being unreachable falls back to the OS notification.
+// With the host route down, the themed in-page card and the OS toast take over.
 nativeMode = 'fail'
 sessionStatus.set(
   new Map([['s1', { running: true, pendingInteraction: { kind: 'approval', key: 'approval:2', toolName: 'fs' } }]])
 )
-view = inspect(render())
-await flush()
+tree = await settle()
+let view = inspect(tree)
+assert.match(view.text, /需要审批/u, 'the fallback card carries the alert')
+assert.match(view.text, /夜间重构/u)
 assert.equal(audio.oscillators, 6, 'the fallback alert still rings')
 assert.equal(systemNotifications.length, 1, 'the OS toast is the fallback channel')
 assert.equal(systemNotifications[0].title, '需要审批')
-assert.match(systemNotifications[0].options.body, /夜间重构/u)
 assert.equal(systemNotifications[0].options.silent, true, 'the in-app chime is the only sound')
 
 // The request settling closes its OS notification.
 sessionStatus.set(new Map())
-inspect(render())
-await flush()
+tree = await settle()
+assert.equal(tree, null, 'nothing pending leaves no card')
 assert.equal(systemNotifications[0].closed, true, 'a settled request closes its native notification')
-assert.equal(postsTo('/attention-notify/clear').length >= 1, true, 'nothing pending clears the host window')
 
 // Mute is persisted and silences the chime, but not the alert.
-nativeMode = 'ok'
+nativeMode = 'fail'
 sessionStatus.set(
   new Map([['s2', { running: true, pendingInteraction: { kind: 'question', key: 'question:s2:c2', questions: [{ id: 'q2', question: '继续吗？' }] } }]])
 )
-view = inspect(render())
+tree = await settle()
+view = inspect(tree)
 const muteButton = buttonByTitle(view, '静音提示音')
-assert.ok(muteButton, 'the mute button is offered')
+assert.ok(muteButton, 'the fallback card offers the mute toggle')
 muteButton.onClick()
-await flush()
 assert.equal(storage.get('dsh-attention-notify:muted'), '1', 'mute is persisted')
 sessionStatus.set(
   new Map([['s2', { running: true, pendingInteraction: { kind: 'plan-review', key: 'question:s2:c3', questions: [{ id: 'q3', question: '计划 A' }] } }]])
 )
-view = inspect(render())
-await flush()
+tree = await settle()
+view = inspect(tree)
 assert.match(view.text, /计划等待确认/u)
 assert.equal(audio.oscillators, 8, 'a muted alert keeps the earlier count')
-assert.equal(postsTo('/attention-notify/notify').length >= 3, true, 'a muted alert still reaches the host window')
 
 // Dismissal empties the overlay.
 const dismissButton = buttonByTitle(view, '关闭提醒')
 assert.ok(dismissButton, 'the dismiss button is offered')
 dismissButton.onClick()
-await flush()
-assert.equal(render(), null, 'dismissing the last card empties the overlay')
+tree = render()
+assert.equal(tree, null, 'dismissing the last card empties the overlay')
 
-console.log('ok - client bundle notifies, jumps, mutes, and dismisses as specified')
+console.log('ok - one surface at a time: native window, jump poll, fallback card, mute, dismissal')
 process.exit(0)

@@ -11,7 +11,7 @@
  * @module dsh-attention-notify
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,6 +22,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 const stateDir = join(tmpdir(), 'dsh-attention-notify')
 /** The single alert document the helper polls. */
 const alertFile = join(stateDir, 'alert.json')
+/** A jump request the helper writes when its button is pressed. */
+const jumpFile = join(stateDir, 'jump.json')
 /** Presence of this file asks the helper to exit. */
 const stopFile = join(stateDir, 'stop')
 /** Largest accepted request body. */
@@ -29,6 +31,41 @@ const MAX_BODY_BYTES = 16 * 1024
 
 /** Required service: the local HTTP server the Web client posts to. */
 export const inject = ['webServer']
+
+/** Accept only a colour string the helper can parse; anything else is dropped. */
+function readTheme(raw) {
+  if (raw === null || typeof raw !== 'object') return undefined
+  const pick = (value) =>
+    typeof value === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/iu.test(value.trim()) ? value.trim() : undefined
+  const theme = {}
+  for (const name of ['bg', 'text', 'muted', 'border', 'accent']) {
+    const value = pick(raw[name])
+    if (value !== undefined) theme[name] = value
+  }
+  return Object.keys(theme).length === 0 ? undefined : theme
+}
+
+/** Take one pending jump request, if the helper left one. */
+function takeJump() {
+  let raw
+  try {
+    raw = readFileSync(jumpFile, 'utf8')
+  } catch {
+    return null
+  }
+  try {
+    rmSync(jumpFile, { force: true })
+  } catch {
+    /* a concurrent reader may have consumed it */
+  }
+  try {
+    const parsed = JSON.parse(raw)
+    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId === '') return null
+    return { sessionId: parsed.sessionId, key: typeof parsed.key === 'string' ? parsed.key : '' }
+  } catch {
+    return null
+  }
+}
 
 /** Write a JSON response. */
 function respond(response, status, payload) {
@@ -99,6 +136,12 @@ export function apply(ctx) {
   const publish = (visible, alert) => {
     sequence += 1
     const payload = { seq: sequence, visible, ...(alert ?? {}) }
+    // A new state invalidates any jump request left from the previous one.
+    try {
+      rmSync(jumpFile, { force: true })
+    } catch {
+      /* nothing to clear */
+    }
     try {
       writeFileSync(alertFile, JSON.stringify(payload), 'utf8')
     } catch (error) {
@@ -121,7 +164,7 @@ export function apply(ctx) {
     try {
       helper = spawn(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, alertFile, stopFile, String(process.pid)],
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, alertFile, stopFile, jumpFile, String(process.pid)],
         { stdio: 'ignore', windowsHide: true }
       )
       helper.on('error', (error) => {
@@ -144,6 +187,10 @@ export function apply(ctx) {
       const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname
       if (request.method === 'GET' && pathname === '/attention-notify/ping') {
         respond(response, 200, { ok: true, helper: helper !== undefined })
+        return
+      }
+      if (request.method === 'GET' && pathname === '/attention-notify/take-jump') {
+        respond(response, 200, { ok: true, jump: takeJump() })
         return
       }
       if (request.method !== 'POST') {
@@ -175,7 +222,10 @@ export function apply(ctx) {
             kind,
             kindLabel: text(body.kindLabel, 80),
             openLabel: text(body.openLabel, 40),
-            dismissLabel: text(body.dismissLabel, 40)
+            dismissLabel: text(body.dismissLabel, 40),
+            key: text(body.key, 120),
+            sessionId: text(body.sessionId, 120),
+            theme: readTheme(body.theme)
           })
           respond(response, 200, { ok: true, helper: helper !== undefined })
         },
