@@ -111,6 +111,8 @@ package name is the only way to end up with a broken install.
 
 | symptom | cause | fix |
 | --- | --- | --- |
+| no card at all, `alert.json` never changes | the page is not running this bundle | reload the page. The production desktop build has **no** Reload accelerator (`Ctrl+R` does nothing); quit and reopen DSH. A browser tab just needs `F5`. `F12` opens DevTools: `typeof __DSH_ATTENTION_NOTIFY__` is `"undefined"` when the client half is missing |
+| `__DSH_ATTENTION_NOTIFY__.selftest()` resolves `false` | page→host channel down (route missing or wrong origin) | check `GET /attention-notify/ping`; reload the bundle |
 | no card, `{"ok":true,"helper":false}` | helper script missing or spawn failed | check `helper/alert-window.ps1` exists; run it by hand with `-LogFile` |
 | card appears but is invisible | it was hidden by a later `clear`, or a stale process | kill `powershell` helpers; the host respawns on the next alert |
 | text is blurry | process is DPI-unaware, Windows bitmap-scales the window | keep `AttentionDpi::Enable()` first; never create a window before it |
